@@ -81,7 +81,7 @@ import java.util.UUID
                     }
                     "习惯" -> {
                         Button(onClick={editor=Habit(UUID.randomUUID().toString(),"",LocalDate.now().toString())},modifier=Modifier.fillMaxWidth()){Text("＋ 创建习惯")}
-                        data.habits.filter { it.archivedOn==null }.forEach { h->SodaCard { Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(h.symbol+"  "+h.name,fontWeight=FontWeight.Bold);Text(h.group+" · "+frequencyLabel(h.frequency),fontSize=12.sp)};TextButton(onClick={editor=h}){Text("编辑")}} } }
+                        data.habits.filter { it.archivedOn==null }.forEach { h->SodaCard { Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(h.symbol+"  "+h.name,fontWeight=FontWeight.Bold);Text(h.group+" · "+frequencyLabel(ScheduleEngine.effective(h,LocalDate.now()).frequency),fontSize=12.sp); val stats=Statistics.habit(h,data.completions,LocalDate.now()); Text("累计 ${stats.completedDays} 天 · 连续 ${stats.currentStreak} ${stats.unit} · 最长 ${stats.longestStreak} ${stats.unit}",fontSize=12.sp)};TextButton(onClick={editor=h}){Text("编辑")}} } }
                         if(data.habits.none { it.archivedOn==null })Text("习惯从一件小事开始。")
                     }
                     "月历" -> {
