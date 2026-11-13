@@ -4,11 +4,14 @@ import android.app.DatePickerDialog
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -16,6 +19,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -116,12 +120,79 @@ import java.util.UUID
 
 @Composable fun SodaCard(color: Color=MaterialTheme.colorScheme.surface,content: @Composable ColumnScope.()->Unit) { Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp),color=color,border=BorderStroke(1.dp,MaterialTheme.colorScheme.onSurface.copy(alpha=.65f)),shadowElevation=3.dp){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)} }
 @Composable fun Metrics(items: List<Pair<String,String>>) { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){items.forEach{(name,value)->Surface(Modifier.weight(1f),shape=RoundedCornerShape(12.dp),border=BorderStroke(1.dp,MaterialTheme.colorScheme.outline)){Column(Modifier.padding(10.dp)){Text(name,fontSize=11.sp);Text(value,fontSize=20.sp,fontWeight=FontWeight.Bold)}}}} }
-@Composable fun TaskCard(name:String,subtitle:String,done:Boolean,backfill:Boolean,onClick:()->Unit) { SodaCard { Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text((if(backfill)"补·" else "")+name,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp)};Checkbox(done,{onClick()})} } }
+@Composable fun TaskCard(name:String,subtitle:String,done:Boolean,backfill:Boolean,onClick:()->Unit) {
+    val c=MaterialTheme.colorScheme
+    SodaCard(color=if(done)c.secondaryContainer else c.surface) {
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            Column(Modifier.weight(1f)){
+                Text((if(backfill)"补·" else "")+name,fontWeight=FontWeight.Bold,color=if(done)c.onSurface.copy(alpha=.62f) else c.onSurface)
+                Text(if(done)"已打卡 · "+subtitle else subtitle,fontSize=12.sp,color=if(done)c.primary else c.onSurface.copy(alpha=.6f))
+            }
+            IconButton(onClick=onClick,modifier=Modifier.size(44.dp)){
+                Icon(if(done)Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,contentDescription=if(done)"取消打卡" else "打卡",
+                    modifier=Modifier.size(30.dp),tint=if(done)c.primary else c.onSurface.copy(alpha=.3f))
+            }
+        }
+    }
+}
 @Composable fun RecordRow(name:String,onDelete:()->Unit){Row(verticalAlignment=Alignment.CenterVertically){Text(name,Modifier.weight(1f));TextButton(onClick=onDelete){Text("删除")}}}
 @Composable fun MonthHeader(month:YearMonth,previous:()->Unit,next:()->Unit){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){IconButton(onClick=previous){Icon(Icons.Outlined.ChevronLeft,"上个月")};Text("${month.year} 年 ${month.monthValue} 月",fontWeight=FontWeight.Bold);IconButton(onClick=next){Icon(Icons.Outlined.ChevronRight,"下个月")}}}
 @Composable fun MonthGrid(month:YearMonth,data:Snapshot,onlyDone:Boolean,onDate:(LocalDate)->Unit){
+    val today=LocalDate.now()
     val offset=month.atDay(1).dayOfWeek.value-1
-    Row(Modifier.fillMaxWidth()){listOf("一","二","三","四","五","六","日").forEach{Text(it,Modifier.weight(1f),fontSize=12.sp)}}
-    (0 until (offset+month.lengthOfMonth()+6)/7).forEach{week->Row(Modifier.fillMaxWidth()){(0..6).forEach{col->val day=week*7+col-offset+1;Box(Modifier.weight(1f).heightIn(min=64.dp)){if(day in 1..month.lengthOfMonth()){val date=month.atDay(day);val completions=data.completions.filter{it.date==date.toString()};val flights=data.flights.filter{it.date==date.toString()};val total=completions.size+flights.size;if(!onlyDone || total>0) TextButton(onClick={onDate(date)},enabled=date<=LocalDate.now(),contentPadding=PaddingValues(0.dp),modifier=Modifier.fillMaxWidth()){Column(horizontalAlignment=Alignment.CenterHorizontally){Text("$day");if(total>0)Text((if(completions.any{it.backfill}||flights.any{it.backfill})"补·" else "")+"$total",fontSize=10.sp)}}}}}}}
+    Row(Modifier.fillMaxWidth().padding(bottom=6.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf("一","二","三","四","五","六","日").forEach{Text(it,Modifier.weight(1f),textAlign=TextAlign.Center,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f))}}
+    (0 until (offset+month.lengthOfMonth()+6)/7).forEach{week->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)){
+        (0..6).forEach{col->val day=week*7+col-offset+1
+            Box(Modifier.weight(1f).padding(vertical=2.dp)){if(day in 1..month.lengthOfMonth()){
+                val date=month.atDay(day)
+                val records=data.completions.filter{it.date==date.toString()}
+                val flights=data.flights.filter{it.date==date.toString()}
+                val planned=data.habits.count{ScheduleEngine.isDue(it,date,data.completions)}
+                val done=records.size
+                val complete=planned>0 && done>=planned
+                val backfill=records.any{it.backfill}||flights.any{it.backfill}
+                if(!onlyDone || done+flights.size>0) DayCell(day,date==today,date>today,planned,done,flights.size,complete,backfill){onDate(date)}
+            }}
+        }
+    }}
+    if(data.habits.isNotEmpty()){
+        Row(Modifier.fillMaxWidth().padding(top=10.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalAlignment=Alignment.CenterVertically){
+            LegendMark(MaterialTheme.colorScheme.secondaryContainer);Text("全部完成",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.7f))
+            LegendMark(MaterialTheme.colorScheme.tertiaryContainer,round=true);Text("含补记",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.7f))
+            LegendMark(MaterialTheme.colorScheme.primary,round=true);Text("有起飞",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.7f))
+        }
+        Text("2/4 = 已完成 / 应完成",Modifier.padding(top=4.dp),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f))
+    } else {
+        Row(Modifier.fillMaxWidth().padding(top=10.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalAlignment=Alignment.CenterVertically){
+            LegendMark(MaterialTheme.colorScheme.tertiaryContainer,round=true);Text("含补记",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.7f))
+            Text("格子里的数字 = 当天起飞次数",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f))
+        }
+    }
+}
+
+@Composable fun LegendMark(color:Color,round:Boolean=false){
+    Box(Modifier.size(if(round)8.dp else 12.dp).background(color,if(round)CircleShape else RoundedCornerShape(3.dp)))
+}
+
+@Composable fun DayCell(day:Int,isToday:Boolean,future:Boolean,planned:Int,done:Int,flights:Int,complete:Boolean,backfill:Boolean,onClick:()->Unit){
+    val c=MaterialTheme.colorScheme
+    val shape=RoundedCornerShape(14.dp)
+    Surface(modifier=Modifier.fillMaxWidth().height(58.dp).clip(shape).clickable(enabled=!future,onClick=onClick),shape=shape,
+        color=when{complete->c.secondaryContainer;future->c.surface.copy(alpha=.35f);else->c.surface},
+        border=if(isToday)BorderStroke(2.dp,c.primary) else null){
+        Box(Modifier.fillMaxSize()){
+            Column(Modifier.fillMaxSize().padding(vertical=6.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+                Text("$day",fontSize=15.sp,lineHeight=18.sp,fontWeight=if(isToday||complete)FontWeight.Bold else FontWeight.Normal,
+                    color=if(future)c.onSurface.copy(alpha=.3f) else if(isToday)c.primary else c.onSurface)
+                if(!future) when{
+                    planned>0->Text("$done/$planned",fontSize=10.sp,lineHeight=12.sp,fontWeight=if(complete)FontWeight.Bold else FontWeight.Normal,
+                        color=if(complete)c.primary else if(done>0)c.onSurface.copy(alpha=.65f) else c.onSurface.copy(alpha=.28f))
+                    flights>0->Text("起飞 $flights",fontSize=9.sp,lineHeight=11.sp,color=c.onSurface.copy(alpha=.6f))
+                }
+            }
+            if(backfill)Box(Modifier.align(Alignment.TopEnd).padding(top=9.dp,end=9.dp).size(7.dp).background(c.tertiaryContainer,CircleShape))
+            if(flights>0 && planned>0)Box(Modifier.align(Alignment.TopStart).padding(top=9.dp,start=9.dp).size(7.dp).background(c.primary,CircleShape))
+        }
+    }
 }
 fun frequencyLabel(value:String)=mapOf("DAILY" to "每天","WEEK_DAYS" to "每周指定日","MONTH_DAYS" to "每月指定日","WEEK_QUOTA" to "每周至少 N 天","MONTH_QUOTA" to "每月至少 N 天")[value]?:value
