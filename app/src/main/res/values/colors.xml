@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sampled from the launcher artwork's cream background. -->
+    <color name="ic_launcher_background">#FEEDD1</color>
+</resources>
